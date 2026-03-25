@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBVA · CDTs Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#050C1A;--bg2:#081426;--surface:#0C1B33;--card:#101F3C;--card2:#132445;--border:#1C3260;--border2:#243E75;--accent:#1A6CF5;--accent2:#00D4A8;--accent3:#F5A623;--text:#D8E8F8;--text2:#8AAAC8;--text3:#4A6080;--success:#00C896;--warning:#F5A623;--danger:#F04545;--r:8px;--r2:12px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:"Sora",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+::-webkit-scrollbar{width:6px;height:6px;}::-webkit-scrollbar-track{background:var(--bg2);}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.mono{font-family:"JetBrains Mono",monospace;}
+#loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:48px 40px;text-align:center;max-width:400px;width:90%;}
+.login-logo{font-size:13px;font-weight:700;letter-spacing:1px;background:var(--accent);color:#fff;padding:6px 14px;border-radius:4px;display:inline-block;margin-bottom:24px;}
+.login-title{font-size:22px;font-weight:700;margin-bottom:8px;}
+.login-sub{font-size:13px;color:var(--text3);margin-bottom:32px;line-height:1.6;}
+.btn-google-login{display:inline-flex;align-items:center;gap:10px;background:#fff;color:#333;border:none;padding:12px 24px;border-radius:8px;font-family:"Sora",sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.btn-google-login:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.login-denied{background:rgba(240,69,69,.1);border:1px solid rgba(240,69,69,.3);border-radius:8px;padding:14px 18px;color:#F04545;font-size:13px;margin-top:16px;display:none;}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-badge{background:var(--accent);color:#fff;font-weight:700;font-size:13px;padding:4px 10px;border-radius:4px;letter-spacing:1px;}
+.logo-title{font-size:15px;font-weight:600;}
+.logo-sub{font-size:11px;color:var(--text3);}
+.header-right{display:flex;align-items:center;gap:12px;}
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 4px;}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;overflow:hidden;}
+.user-avatar img{width:100%;height:100%;object-fit:cover;}
+.user-name{font-size:12px;color:var(--text2);}
+.user-role{font-size:10px;color:var(--text3);}
+.sync-indicator{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);}
+.sync-dot.ok{background:var(--success);}
+.sync-dot.syncing{background:var(--warning);animation:pulse 1s infinite;}
+.sync-dot.err{background:var(--danger);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.btn-sm{display:inline-flex;align-items:center;gap:5px;background:var(--card2);border:1px solid var(--border2);color:var(--text2);padding:5px 12px;border-radius:6px;cursor:pointer;font-family:"Sora",sans-serif;font-size:11px;transition:all .2s;}
+.btn-sm:hover{background:var(--border);color:var(--text);}
+.tabs-nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;}
+.tab-btn{padding:14px 18px;font-family:"Sora",sans-serif;font-size:13px;font-weight:500;color:var(--text3);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;}
+.tab-btn:hover{color:var(--text2);}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-btn.admin-only{display:none;}
+.tab-btn.admin-only.visible{display:block;}
+.tab-content{display:none;padding:24px;max-width:1200px;margin:0 auto;}
+.tab-content.active{display:block;}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:24px;}
+.summary-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:20px;transition:border-color .2s;}
+.summary-card:hover{border-color:var(--border2);}
+.card-label{font-size:11px;font-weight:600;letter-spacing:.8px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;}
+.card-value{font-family:"JetBrains Mono",monospace;font-size:22px;font-weight:600;line-height:1;}
+.card-sub{font-size:11px;color:var(--text3);margin-top:6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.card-delta{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;padding:2px 6px;border-radius:3px;}
+.card-delta.pos{background:rgba(0,200,150,.15);color:var(--success);}
+.card-delta.neg{background:rgba(240,69,69,.15);color:var(--danger);}
+.card-delta.neu{background:rgba(90,106,122,.15);color:#5A6A7A;}
+.card-accent{border-top:2px solid var(--accent);}
+.card-accent2{border-top:2px solid var(--accent2);}
+.card-accent3{border-top:2px solid var(--accent3);}
+.card-accent4{border-top:2px solid var(--danger);}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+.section-title{font-size:14px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:8px;}
+.section-title::before{content:"";width:3px;height:16px;background:var(--accent);border-radius:2px;display:inline-block;}
+.section-badge{background:var(--card2);color:var(--text3);font-size:11px;padding:2px 8px;border-radius:10px;font-family:"JetBrains Mono",monospace;}
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:480px;}
+thead th{background:var(--card2);font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);}
+thead th.right{text-align:right;}thead th.center{text-align:center;}
+tbody tr{border-bottom:1px solid rgba(28,50,96,.6);transition:background .15s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(26,108,245,.04);}
+tbody tr.closed-row{opacity:.4;}
+tbody td{padding:13px 16px;font-size:13px;vertical-align:middle;}
+tbody td.mono{font-family:"JetBrains Mono",monospace;font-size:12px;}
+tbody td.right{text-align:right;}tbody td.center{text-align:center;}
+tfoot td{padding:13px 16px;font-size:13px;font-weight:600;background:var(--card2);border-top:1px solid var(--border);}
+tfoot td.mono{font-family:"JetBrains Mono",monospace;}tfoot td.right{text-align:right;}
+.ref-badge{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:var(--accent);background:rgba(26,108,245,.12);padding:3px 8px;border-radius:4px;}
+.status{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:4px;white-space:nowrap;}
+.status::before{content:"";width:5px;height:5px;border-radius:50%;}
+.status.active{background:rgba(0,200,150,.12);color:#00C896;}.status.active::before{background:#00C896;}
+.status.expired{background:rgba(240,69,69,.12);color:#F04545;}.status.expired::before{background:#F04545;}
+.status.soon{background:rgba(245,166,35,.12);color:#F5A623;}.status.soon::before{background:#F5A623;}
+.status.closed{background:rgba(90,106,122,.12);color:#5A6A7A;}.status.closed::before{background:#5A6A7A;}
+.days-chip{display:inline-block;font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;}
+.days-chip.soon{background:rgba(245,166,35,.15);color:#F5A623;}
+.days-chip.urgent{background:rgba(240,69,69,.15);color:#F04545;}
+.days-chip.ok{background:rgba(0,200,150,.1);color:#00C896;}
+.days-chip.past{background:rgba(90,106,122,.1);color:#5A6A7A;}
+.dist-section{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:20px;margin-top:20px;}
+.dist-label{font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:14px;}
+.dist-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:1px;margin-bottom:12px;}
+.dist-seg{height:100%;}
+.dist-legend{display:flex;flex-wrap:wrap;gap:8px 18px;}
+.dist-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);}
+.dist-dot{width:8px;height:8px;border-radius:50%;}
+.dist-pct{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--text3);}
+.chart-container{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:24px;margin-bottom:20px;}
+.chart-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+.chart-title{font-size:14px;font-weight:600;}
+.chart-sub{font-size:11px;color:var(--text3);margin-top:3px;}
+.chart-legend{display:flex;gap:16px;flex-wrap:wrap;}
+.chart-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);}
+.chart-legend-line{width:20px;height:2px;border-radius:1px;}
+.chart-canvas-wrap{position:relative;height:260px;}
+.evo-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);overflow-x:auto;margin-bottom:20px;}
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:24px;margin-bottom:20px;}
+.form-title{font-size:14px;font-weight:600;margin-bottom:20px;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group label{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+.form-input{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:6px;font-family:"Sora",sans-serif;font-size:13px;transition:border-color .2s;outline:none;}
+.form-input:focus{border-color:var(--accent);}
+.form-input::placeholder{color:var(--text3);}
+.form-divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
+.cdt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:20px;}
+.cdt-input-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;}
+.cdt-input-card:hover{border-color:var(--border2);}
+.cdt-input-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.cdt-input-ref{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:600;color:var(--accent);}
+.cdt-input-venc{font-size:10px;color:var(--text3);}
+.cdt-row{display:flex;gap:8px;}
+.cdt-val-input{flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:5px;font-family:"JetBrains Mono",monospace;font-size:12px;outline:none;transition:border-color .2s;}
+.cdt-val-input:focus{border-color:var(--accent);}
+.cdt-status-sel{background:var(--surface);border:1px solid var(--border);color:var(--text2);padding:7px 8px;border-radius:5px;font-family:"Sora",sans-serif;font-size:11px;outline:none;cursor:pointer;}
+.btn-primary{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:6px;font-family:"Sora",sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
+.btn-primary:hover{background:#1558d0;}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.btn-secondary{display:inline-flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border2);color:var(--text2);padding:10px 20px;border-radius:6px;font-family:"Sora",sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;}
+.btn-secondary:hover{background:var(--border);color:var(--text);}
+.btn-danger-sm{background:rgba(240,69,69,.1);border:1px solid rgba(240,69,69,.3);color:#F04545;padding:5px 10px;border-radius:4px;font-family:"Sora",sans-serif;font-size:11px;cursor:pointer;}
+.btn-danger-sm:hover{background:rgba(240,69,69,.2);}
+.form-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+.snap-list{display:flex;flex-direction:column;gap:10px;}
+.snap-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;transition:border-color .2s;}
+.snap-item:hover{border-color:var(--border2);}
+.snap-item.current{border-color:var(--accent);background:rgba(26,108,245,.04);}
+.snap-date{font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:600;}
+.snap-label{font-size:12px;color:var(--text2);}
+.snap-notes{font-size:11px;color:var(--text3);font-style:italic;}
+.snap-total{font-family:"JetBrains Mono",monospace;font-size:14px;font-weight:600;text-align:right;}
+.snap-cdts{font-size:11px;color:var(--text3);text-align:right;}
+.snap-badge{font-size:10px;background:rgba(26,108,245,.2);color:var(--accent);padding:2px 8px;border-radius:10px;font-weight:600;}
+.snap-author{font-size:10px;color:var(--text3);margin-top:2px;}
+.config-section{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:24px;margin-bottom:20px;}
+.config-title{font-size:14px;font-weight:600;margin-bottom:6px;}
+.config-sub{font-size:12px;color:var(--text3);margin-bottom:20px;line-height:1.7;}
+.access-list{display:flex;flex-direction:column;gap:8px;margin-top:16px;}
+.access-item{background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.access-email{font-family:"JetBrains Mono",monospace;font-size:13px;}
+.access-role-badge{font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600;}
+.access-role-badge.admin{background:rgba(26,108,245,.2);color:var(--accent);}
+.access-role-badge.editor{background:rgba(245,166,35,.12);color:var(--warning);}
+.access-role-badge.viewer{background:rgba(0,200,150,.12);color:var(--success);}
+.readonly-banner{background:rgba(0,200,150,.06);border-bottom:1px solid rgba(0,200,150,.15);padding:8px 24px;font-size:12px;color:var(--success);display:flex;align-items:center;gap:8px;}
+.alert-bar{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:var(--r);padding:12px 16px;margin-bottom:20px;display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--warning);line-height:1.5;}
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:2000;display:flex;flex-direction:column;gap:8px;}
+.toast{padding:12px 18px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 4px 24px rgba(0,0,0,.5);animation:slideIn .3s ease;display:flex;align-items:center;gap:8px;max-width:340px;transition:opacity .5s;}
+.toast.ok{background:#0C2C22;border:1px solid #00C896;color:#00C896;}
+.toast.err{background:#2C0C0C;border:1px solid #F04545;color:#F04545;}
+.toast.info{background:#0C1C3C;border:1px solid var(--accent);color:#6AAAF8;}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:16px;}
+.loading-spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:13px;color:var(--text3);}
+@media(max-width:640px){
+  .tab-btn{padding:12px 12px;font-size:12px;}
+  .cards-grid{grid-template-columns:1fr 1fr;}
+  .card-value{font-size:18px;}
+  header{padding:0 16px;}
+  .tab-content{padding:16px;}
+  .form-grid{grid-template-columns:1fr;}
+  .user-name,.user-role{display:none;}
+}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">A carregar...</div>
+</div>
+
+<div id="loginScreen" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">BBVA</div>
+    <div class="login-title">CDTs Tracker</div>
+    <div class="login-sub">Gestão de Depósitos a Prazo · Colombia<br>Inicia sessão com a tua conta Google autorizada.</div>
+    <button class="btn-google-login" onclick="signInGoogle()">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Entrar com Google
+    </button>
+    <div class="login-denied" id="loginDenied">⛔ Acesso não autorizado. O teu email não tem permissão. Contacta o administrador.</div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <div id="readonlyBanner" class="readonly-banner" style="display:none">👁 Modo leitura — apenas editores e administradores podem adicionar registos</div>
+  <header>
+    <div class="logo">
+      <span class="logo-badge">BBVA</span>
+      <div><div class="logo-title">CDTs Tracker</div><div class="logo-sub">Colombia · Depósitos a Prazo</div></div>
+    </div>
+    <div class="header-right">
+      <div class="sync-indicator">
+        <div class="sync-dot ok" id="syncDot"></div>
+        <span id="syncText" style="font-size:11px">Sincronizado</span>
+      </div>
+      <div class="user-chip">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div><div class="user-name" id="userName">—</div><div class="user-role" id="userRoleBadge">—</div></div>
+      </div>
+      <button class="btn-sm" onclick="signOut()">Sair</button>
+    </div>
+  </header>
+  <div class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('dashboard')" id="tab-dashboard">📊 Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('evolucao')" id="tab-evolucao">📈 Evolução</button>
+    <button class="tab-btn" onclick="switchTab('lancamentos')" id="tab-lancamentos">✏️ Lançamentos</button>
+    <button class="tab-btn admin-only" onclick="switchTab('admin')" id="tab-admin">🔐 Acessos</button>
+  </div>
+
+  <div class="tab-content active" id="content-dashboard">
+    <div id="alertBar"></div>
+    <div class="cards-grid" id="summaryCards"></div>
+    <div class="section-header">
+      <div class="section-title">CDTs em Carteira <span class="section-badge" id="snapDateBadge">—</span></div>
+    </div>
+    <div class="table-wrap" id="cdtTableWrap"></div>
+    <div class="dist-section" id="distSection"></div>
+  </div>
+
+  <div class="tab-content" id="content-evolucao">
+    <div class="chart-container">
+      <div class="chart-header">
+        <div><div class="chart-title">Evolução do Portfólio</div><div class="chart-sub">Total CDTs · Ahorro · Total Geral ($ COP)</div></div>
+        <div class="chart-legend">
+          <div class="chart-legend-item"><div class="chart-legend-line" style="background:#1A6CF5"></div>CDTs</div>
+          <div class="chart-legend-item"><div class="chart-legend-line" style="background:#00D4A8"></div>Ahorro</div>
+          <div class="chart-legend-item"><div class="chart-legend-line" style="background:#F5A623"></div>Total</div>
+        </div>
+      </div>
+      <div class="chart-canvas-wrap"><canvas id="evoChart"></canvas></div>
+    </div>
+    <div class="section-header"><div class="section-title">Comparativo entre Registos</div></div>
+    <div class="evo-table-wrap" id="evoTableWrap"></div>
+    <div class="section-header" style="margin-top:24px"><div class="section-title">Evolução por CDT</div></div>
+    <div class="table-wrap" id="perCdtEvoWrap" style="overflow-x:auto"></div>
+  </div>
+
+  <div class="tab-content" id="content-lancamentos">
+    <div class="form-card" id="newSnapForm">
+      <div class="form-title">📝 Novo Registo de Acompanhamento</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Data do Registo</label><input type="date" class="form-input" id="newSnapDate"></div>
+        <div class="form-group"><label>Designação</label><input type="text" class="form-input" id="newSnapLabel" placeholder="ex: Abril 2026"></div>
+        <div class="form-group"><label>Notas</label><input type="text" class="form-input" id="newSnapNotes" placeholder="ex: Após renovação CDT ·8778"></div>
+      </div>
+      <hr class="form-divider">
+      <div class="section-title" style="margin-bottom:14px">Valores dos CDTs</div>
+      <div class="cdt-grid" id="newSnapCdts"></div>
+      <hr class="form-divider">
+      <div class="form-group" style="max-width:300px;margin-bottom:20px">
+        <label>Ahorro Diario ·6050 ($ COP)</label>
+        <input type="number" class="form-input mono" id="newAhorro" placeholder="0">
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="saveNewSnap()" id="btnSaveSnap">💾 Guardar Registo</button>
+        <button class="btn-secondary" onclick="fillFromLast()">↩ Preencher do último</button>
+        <button class="btn-secondary" onclick="addNewCdtField()" style="font-size:12px">+ Novo CDT</button>
+      </div>
+    </div>
+    <div class="section-header">
+      <div class="section-title">Histórico de Registos <span class="section-badge" id="snapCountBadge">0</span></div>
+    </div>
+    <div class="snap-list" id="snapList"></div>
+  </div>
+
+  <div class="tab-content" id="content-admin">
+    <div class="config-section">
+      <div class="config-title">🔐 Gestão de Acessos</div>
+      <div class="config-sub">
+        Controla quem pode aceder à aplicação.<br>
+        <strong>Admin</strong> — acesso total, gere utilizadores &nbsp;|&nbsp;
+        <strong>Editor</strong> — vê e adiciona registos &nbsp;|&nbsp;
+        <strong>Viewer</strong> — apenas leitura
+      </div>
+      <div class="form-grid" style="max-width:560px">
+        <div class="form-group"><label>Email</label><input type="email" class="form-input" id="newUserEmail" placeholder="email@gmail.com"></div>
+        <div class="form-group"><label>Papel</label>
+          <select class="form-input" id="newUserRole">
+            <option value="viewer">Viewer — só leitura</option>
+            <option value="editor">Editor — pode adicionar registos</option>
+            <option value="admin">Admin — acesso total</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="addUser()" style="margin-bottom:4px">➕ Adicionar Utilizador</button>
+      <div class="access-list" id="accessList"></div>
+    </div>
+    <div class="config-section">
+      <div class="config-title">📋 Registo de Actividade</div>
+      <div class="config-sub">Últimas acções realizadas na aplicação.</div>
+      <div id="activityLog" class="table-wrap"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ============================================================
+// FIREBASE CONFIG — substitui pelos teus valores
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDME0nCxcZ4BRzyP8fp9BVeygdxzDmdirM",
+  authDomain: "bbva-cdts-tracker.firebaseapp.com",
+  projectId: "bbva-cdts-tracker",
+  storageBucket: "bbva-cdts-tracker.firebasestorage.app",
+  messagingSenderId: "168385433835",
+  appId: "1:168385433835:web:2c7595848221404fd5aeae"
+};
+// ============================================================
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser = null, currentRole = null, snapshots = [], evoChart = null, unsubSnaps = null;
+const COLORS = ["#1A6CF5","#00D4A8","#F5A623","#9B7BF5","#F04545","#20C4F4","#FF8A65","#81C784","#F48FB1"];
+const ST_MAP = {active:"Activo",expired:"Vencido",soon:"Em breve",closed:"Encerrado"};
+
+// ── UTILS ──────────────────────────────────────────────────
+const COP  = n => "$\u202f"+(+n||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0});
+const COP2 = n => "$\u202f"+(+n||0).toLocaleString("es-CO",{minimumFractionDigits:2,maximumFractionDigits:2});
+function daysUntil(d){const t=new Date();t.setHours(0,0,0,0);const x=new Date(d);x.setHours(0,0,0,0);return Math.round((x-t)/86400000);}
+function fmtDate(d){if(!d)return"—";const[y,m,dd]=d.split("-");return dd+" "+["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][+m-1]+" "+y;}
+function fmtTs(ts){if(!ts)return"—";const d=ts.toDate?ts.toDate():new Date(ts);return d.toLocaleDateString("pt-PT")+" "+d.toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"});}
+function totalCdts(s){return s.cdts.filter(c=>c.status!=="closed").reduce((a,c)=>a+(+c.valor||0),0);}
+function totalGeral(s){return totalCdts(s)+(+s.ahorro||0);}
+function statusAutoDetect(v){const d=daysUntil(v);if(d<0)return"expired";if(d<=7)return"soon";return"active";}
+function latestSnap(){return snapshots[snapshots.length-1];}
+
+// ── AUTH ───────────────────────────────────────────────────
+function signInGoogle(){
+  const p=new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(p).catch(e=>toast("Erro ao entrar: "+e.message,"err"));
+}
+function signOut(){auth.signOut();}
+
+auth.onAuthStateChanged(async user=>{
+  document.getElementById("loadingOverlay").style.display="none";
+  if(!user){
+    document.getElementById("loginScreen").style.display="flex";
+    document.getElementById("app").style.display="none";
+    document.getElementById("loginDenied").style.display="none";
+    if(unsubSnaps){unsubSnaps();unsubSnaps=null;}
+    currentUser=null;currentRole=null;snapshots=[];
+    return;
+  }
+  const role=await checkAccess(user.email);
+  if(!role){
+    document.getElementById("loginScreen").style.display="flex";
+    document.getElementById("loginDenied").style.display="block";
+    auth.signOut();return;
+  }
+  currentUser=user;currentRole=role;
+  document.getElementById("loginScreen").style.display="none";
+  document.getElementById("app").style.display="block";
+  setupUI();subscribeData();
+});
+
+async function checkAccess(email){
+  try{
+    const doc=await db.collection("config").doc("access").get();
+    if(!doc.exists){
+      // Bootstrap: primeiro utilizador torna-se admin
+      await db.collection("config").doc("access").set({
+        roles:{[email]:"admin"},
+        meta:{[email]:{addedAt:firebase.firestore.FieldValue.serverTimestamp(),addedBy:"bootstrap"}}
+      });
+      return "admin";
+    }
+    const roles=doc.data().roles||{};
+    return roles[email]||null;
+  }catch(e){console.error("checkAccess:",e);return null;}
+}
+
+// ── UI SETUP ───────────────────────────────────────────────
+function setupUI(){
+  const u=currentUser;
+  const av=document.getElementById("userAvatar");
+  if(u.photoURL)av.innerHTML=`<img src="${u.photoURL}" alt="">`;
+  else av.textContent=(u.displayName||u.email||"?")[0].toUpperCase();
+  document.getElementById("userName").textContent=u.displayName||u.email;
+  document.getElementById("userRoleBadge").textContent={admin:"Admin",editor:"Editor",viewer:"Viewer"}[currentRole]||currentRole;
+  if(currentRole==="admin")document.getElementById("tab-admin").classList.add("visible");
+  if(currentRole==="viewer"){
+    document.getElementById("readonlyBanner").style.display="flex";
+    const f=document.getElementById("newSnapForm");
+    f.style.opacity=".5";f.style.pointerEvents="none";
+  }
+  document.getElementById("newSnapDate").value=new Date().toISOString().split("T")[0];
+}
+
+// ── FIRESTORE REALTIME ──────────────────────────────────────
+function subscribeData(){
+  setSyncState("syncing");
+  if(unsubSnaps)unsubSnaps();
+  unsubSnaps=db.collection("snapshots").orderBy("date","asc").onSnapshot(snap=>{
+    snapshots=snap.docs.map(d=>({id:d.id,...d.data()}));
+    snapshots.sort((a,b)=>a.date.localeCompare(b.date));
+    renderDashboard();renderSnapList();setSyncState("ok");
+  },e=>{setSyncState("err");toast("Erro de sincronização: "+e.message,"err");});
+
+  setTimeout(async()=>{
+    const c=await db.collection("snapshots").limit(1).get();
+    if(c.empty)seedInitialData();
+  },1800);
+}
+
+async function seedInitialData(){
+  const B="\xb7";
+  const snaps=[
+    {id:"snap_20260217",date:"2026-02-17",label:"17 Fev 2026",notes:"Registo inicial",ahorro:17325504.32,
+     cdts:[{ref:B+"1810",vencimento:"2026-03-17",valor:25000000,status:"active"},{ref:B+"6065",vencimento:"2026-03-18",valor:25000000,status:"active"},{ref:B+"8608",vencimento:"2026-03-19",valor:75000000,status:"active"},{ref:B+"8778",vencimento:"2026-03-27",valor:15000000,status:"active"},{ref:B+"3150",vencimento:"2026-04-02",valor:60000000,status:"active"},{ref:B+"4205",vencimento:"2026-04-15",valor:100000000,status:"active"},{ref:B+"8607",vencimento:"2026-04-17",valor:200000000,status:"active"},{ref:B+"3468",vencimento:"2026-05-04",valor:50984480,status:"active"},{ref:B+"0193",vencimento:"2026-06-18",valor:10000000,status:"active"}],
+     createdBy:"bootstrap",createdAt:firebase.firestore.FieldValue.serverTimestamp()},
+    {id:"snap_20260324",date:"2026-03-24",label:"24 Mar 2026",notes:"Actualização — vencimentos de Março",ahorro:41474829.72,
+     cdts:[{ref:B+"1810",vencimento:"2026-03-17",valor:0,status:"closed"},{ref:B+"6065",vencimento:"2026-03-18",valor:25000000,status:"expired"},{ref:B+"8608",vencimento:"2026-03-19",valor:76561248,status:"expired"},{ref:B+"8778",vencimento:"2026-03-27",valor:15000000,status:"soon"},{ref:B+"3150",vencimento:"2026-04-02",valor:60000000,status:"active"},{ref:B+"4205",vencimento:"2026-04-15",valor:100000000,status:"active"},{ref:B+"8607",vencimento:"2026-04-17",valor:200000000,status:"active"},{ref:B+"3468",vencimento:"2026-05-04",valor:50984480,status:"active"},{ref:B+"0193",vencimento:"2026-06-18",valor:10000000,status:"active"}],
+     createdBy:"bootstrap",createdAt:firebase.firestore.FieldValue.serverTimestamp()}
+  ];
+  const batch=db.batch();
+  snaps.forEach(s=>{const{id,...data}=s;batch.set(db.collection("snapshots").doc(id),data);});
+  await batch.commit();
+  toast("Dados iniciais carregados","ok");
+}
+
+function setSyncState(s){
+  const dot=document.getElementById("syncDot"),txt=document.getElementById("syncText");
+  if(s==="ok"){dot.className="sync-dot ok";txt.textContent="Sincronizado";}
+  else if(s==="syncing"){dot.className="sync-dot syncing";txt.textContent="A sincronizar...";}
+  else{dot.className="sync-dot err";txt.textContent="Erro de ligação";}
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────
+function renderDashboard(){
+  if(!snapshots.length)return;
+  const snap=latestSnap(),prev=snapshots.length>=2?snapshots[snapshots.length-2]:null;
+  document.getElementById("snapDateBadge").textContent=fmtDate(snap.date);
+  const totCdts=totalCdts(snap),totG=totalGeral(snap),prevG=prev?totalGeral(prev):totG,dG=totG-prevG;
+  const dPct=prevG?(dG/prevG*100).toFixed(2):"0.00",dCls=dG>0?"pos":dG<0?"neg":"neu",dSign=dG>=0?"+":"";
+  const next30=snap.cdts.filter(c=>{const d=daysUntil(c.vencimento);return d>=0&&d<=30&&c.status!=="closed";});
+  const n30=next30.reduce((a,c)=>a+(+c.valor||0),0);
+  const urgent=snap.cdts.filter(c=>{const d=daysUntil(c.vencimento);return d>=0&&d<=7&&c.status!=="closed";});
+  document.getElementById("alertBar").innerHTML=urgent.length?`<div class="alert-bar">⚠️ <span><strong>${urgent.length} CDT${urgent.length>1?"s":""} vence${urgent.length>1?"m":""} nos próximos 7 dias:</strong> ${urgent.map(c=>`<strong>CDT ${c.ref}</strong> (${fmtDate(c.vencimento)}, ${COP(c.valor)})`).join(" · ")}</span></div>`:"";
+  document.getElementById("summaryCards").innerHTML=`
+    <div class="summary-card card-accent"><div class="card-label">Total CDTs</div><div class="card-value">${COP(totCdts)}</div><div class="card-sub"><span class="card-delta ${dCls}">${dSign}${dPct}%</span> vs registo anterior</div></div>
+    <div class="summary-card card-accent2"><div class="card-label">Ahorro Diario ·6050</div><div class="card-value">${COP2(snap.ahorro)}</div><div class="card-sub">Saldo disponível</div></div>
+    <div class="summary-card card-accent3"><div class="card-label">Total Geral</div><div class="card-value">${COP2(totG)}</div><div class="card-sub"><span class="card-delta ${dCls}">${dSign}${COP(Math.abs(dG))}</span> vs anterior</div></div>
+    <div class="summary-card card-accent4"><div class="card-label">Próx. 30 dias</div><div class="card-value">${COP(n30)}</div><div class="card-sub">${next30.length} CDT${next30.length!==1?"s":""} para renovar</div></div>`;
+  let rows="";
+  snap.cdts.forEach(c=>{
+    const d=daysUntil(c.vencimento);
+    let dc=c.status==="closed"?`<span class="days-chip past">encerrado</span>`:
+      d<0?`<span class="days-chip past">${Math.abs(d)}d atrás</span>`:
+      d===0?`<span class="days-chip urgent">hoje</span>`:
+      d<=7?`<span class="days-chip soon">${d}d</span>`:
+      `<span class="days-chip ok">${d}d</span>`;
+    rows+=`<tr class="${c.status==="closed"?"closed-row":""}"><td><span class="ref-badge">CDT ${c.ref}</span></td><td class="mono">${fmtDate(c.vencimento)}</td><td class="center">${dc}</td><td class="right mono">${c.status==="closed"?"—":COP(c.valor)}</td><td class="center"><span class="status ${c.status}">${ST_MAP[c.status]||c.status}</span></td></tr>`;
+  });
+  rows+=`<tr><td colspan="3"><span class="ref-badge" style="background:rgba(0,212,168,.1);color:#00D4A8">Ahorro ·6050</span></td><td class="right mono">${COP2(snap.ahorro)}</td><td class="center"><span class="status active">Disponível</span></td></tr>`;
+  document.getElementById("cdtTableWrap").innerHTML=`<table><thead><tr><th>Referência</th><th>Vencimento</th><th class="center">Prazo</th><th class="right">Valor ($ COP)</th><th class="center">Estado</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="3"><strong>TOTAL CDTs</strong></td><td class="right mono"><strong>${COP(totCdts)}</strong></td><td></td></tr><tr><td colspan="3"><strong>TOTAL GERAL</strong></td><td class="right mono"><strong>${COP2(totG)}</strong></td><td></td></tr></tfoot></table>`;
+  const active=snap.cdts.filter(c=>c.status!=="closed"&&c.valor>0),tot=totalGeral(snap);
+  let ds="",dl="";
+  active.forEach((c,i)=>{const p=(c.valor/tot*100).toFixed(1);ds+=`<div class="dist-seg" style="width:${p}%;background:${COLORS[i%COLORS.length]}"></div>`;dl+=`<div class="dist-item"><div class="dist-dot" style="background:${COLORS[i%COLORS.length]}"></div><span>CDT ${c.ref}</span><span class="dist-pct">${p}%</span></div>`;});
+  const ap=(snap.ahorro/tot*100).toFixed(1);ds+=`<div class="dist-seg" style="width:${ap}%;background:#00D4A8"></div>`;dl+=`<div class="dist-item"><div class="dist-dot" style="background:#00D4A8"></div><span>Ahorro</span><span class="dist-pct">${ap}%</span></div>`;
+  document.getElementById("distSection").innerHTML=`<div class="dist-label">Distribuição do portfólio</div><div class="dist-bar">${ds}</div><div class="dist-legend">${dl}</div>`;
+}
+
+// ── EVOLUÇÃO ───────────────────────────────────────────────
+function renderEvo(){
+  if(!snapshots.length)return;
+  if(evoChart)evoChart.destroy();
+  const ctx=document.getElementById("evoChart").getContext("2d");
+  evoChart=new Chart(ctx,{type:"line",data:{labels:snapshots.map(s=>fmtDate(s.date)),datasets:[
+    {label:"Total CDTs",data:snapshots.map(s=>totalCdts(s)),borderColor:"#1A6CF5",backgroundColor:"rgba(26,108,245,.08)",tension:.35,pointRadius:5,pointBackgroundColor:"#1A6CF5",fill:true},
+    {label:"Ahorro",data:snapshots.map(s=>+s.ahorro||0),borderColor:"#00D4A8",backgroundColor:"rgba(0,212,168,.05)",tension:.35,pointRadius:5,pointBackgroundColor:"#00D4A8",fill:true},
+    {label:"Total Geral",data:snapshots.map(s=>totalGeral(s)),borderColor:"#F5A623",backgroundColor:"transparent",tension:.35,pointRadius:5,pointBackgroundColor:"#F5A623",borderWidth:2.5}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>" "+COP2(c.raw)},backgroundColor:"#0C1B33",borderColor:"#1C3260",borderWidth:1,titleColor:"#8AAAC8",bodyColor:"#D8E8F8",padding:10}},scales:{x:{grid:{color:"rgba(28,50,96,.5)"},ticks:{color:"#5B7699",font:{family:"Sora",size:11}}},y:{grid:{color:"rgba(28,50,96,.5)"},ticks:{color:"#5B7699",font:{family:"JetBrains Mono",size:10},callback:v=>"$"+Intl.NumberFormat("es-CO",{notation:"compact",maximumFractionDigits:0}).format(v)}}}}});
+  if(snapshots.length>=2){
+    let rows="";
+    for(let i=1;i<snapshots.length;i++){
+      const c=snapshots[i],p=snapshots[i-1],dC=totalCdts(c)-totalCdts(p),dT=totalGeral(c)-totalGeral(p),pct=totalGeral(p)?(dT/totalGeral(p)*100).toFixed(2):"0.00",cls=dT>0?"pos":dT<0?"neg":"neu";
+      rows+=`<tr><td class="mono">${fmtDate(p.date)}</td><td class="mono">${fmtDate(c.date)}</td><td class="right mono">${COP(totalCdts(p))}</td><td class="right mono">${COP(totalCdts(c))}</td><td class="right"><span class="card-delta ${dC>0?"pos":dC<0?"neg":"neu"}" style="font-size:11px">${dC>=0?"+":""}${COP(dC)}</span></td><td class="right mono">${COP2(totalGeral(p))}</td><td class="right mono">${COP2(totalGeral(c))}</td><td class="right"><span class="card-delta ${cls}" style="font-size:11px">${dT>=0?"+":""}${pct}%</span></td></tr>`;
+    }
+    document.getElementById("evoTableWrap").innerHTML=`<table><thead><tr><th>De</th><th>Para</th><th class="right">CDTs Ant.</th><th class="right">CDTs Novo</th><th class="right">Δ CDTs</th><th class="right">Total Ant.</th><th class="right">Total Novo</th><th class="right">Δ %</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }else{document.getElementById("evoTableWrap").innerHTML=`<div style="padding:24px;text-align:center;color:var(--text3)">Precisas de pelo menos 2 registos.</div>`;}
+  const allRefs=[...new Set(snapshots.flatMap(s=>s.cdts.map(c=>c.ref)))];
+  let hdrs="<th>CDT</th>"+snapshots.map(s=>`<th class="right">${fmtDate(s.date)}</th>`).join("")+"<th class=\"right\">Variação</th>",er="";
+  allRefs.forEach(ref=>{
+    const vals=snapshots.map(s=>{const c=s.cdts.find(x=>x.ref===ref);return c?{v:+c.valor,st:c.status}:null;});
+    const fst=vals.find(v=>v&&v.v>0),lst=[...vals].filter(v=>v&&v.v>0).pop(),delta=(fst&&lst)?lst.v-fst.v:0,dc=delta>0?"pos":delta<0?"neg":"neu";
+    er+=`<tr><td><span class="ref-badge">CDT ${ref}</span></td>${vals.map(v=>!v||v.st==="closed"||v.v===0?`<td class="right mono" style="color:var(--text3)">—</td>`:`<td class="right mono">${COP(v.v)}</td>`).join("")}<td class="right"><span class="card-delta ${dc}" style="font-size:11px">${delta>=0?"+":""}${COP(delta)}</span></td></tr>`;
+  });
+  document.getElementById("perCdtEvoWrap").innerHTML=`<table><thead><tr>${hdrs}</tr></thead><tbody>${er}</tbody></table>`;
+}
+
+// ── LANÇAMENTOS ────────────────────────────────────────────
+function renderSnapForm(){
+  if(!snapshots.length)return;
+  const snap=latestSnap(),allRefs=[...new Set(snapshots.flatMap(s=>s.cdts.map(c=>c.ref)))];
+  const cdtMap={};snap.cdts.forEach(c=>cdtMap[c.ref]=c);
+  let cards="";
+  allRefs.forEach(ref=>{
+    const c=cdtMap[ref]||{ref,vencimento:"",valor:0,status:"active"};
+    const stOpts=["active","soon","expired","closed"].map(s=>`<option value="${s}" ${c.status===s?"selected":""}>${{active:"Activo",soon:"Em breve",expired:"Vencido",closed:"Encerrado"}[s]}</option>`).join("");
+    const id=ref.replace("\xb7","");
+    cards+=`<div class="cdt-input-card"><div class="cdt-input-header"><span class="cdt-input-ref">CDT ${ref}</span><span class="cdt-input-venc">${fmtDate(c.vencimento)}</span></div><div class="cdt-row"><input type="number" class="cdt-val-input" id="cdt_val_${id}" value="${c.status==="closed"?0:c.valor}" placeholder="0"><select class="cdt-status-sel" id="cdt_st_${id}">${stOpts}</select></div></div>`;
+  });
+  document.getElementById("newSnapCdts").innerHTML=cards;
+  document.getElementById("newAhorro").value=snap.ahorro||"";
+  if(!document.getElementById("newSnapLabel").value){const d=new Date(),ms=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];document.getElementById("newSnapLabel").value=`${d.getDate()} ${ms[d.getMonth()]} ${d.getFullYear()}`;}
+}
+
+function renderSnapList(){
+  document.getElementById("snapCountBadge").textContent=snapshots.length;
+  const isAdmin=currentRole==="admin";
+  document.getElementById("snapList").innerHTML=[...snapshots].reverse().map((s,i)=>{
+    const tot=totalGeral(s),isLatest=i===0;
+    return `<div class="snap-item ${isLatest?"current":""}">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        ${isLatest?"<span class=\"snap-badge\">actual</span>":""}
+        <div><div class="snap-date">${fmtDate(s.date)}</div>
+          <div class="snap-label">${s.label||""}${s.notes?` <span class="snap-notes">— ${s.notes}</span>`:""}</div>
+          ${s.createdBy&&s.createdBy!=="bootstrap"?`<div class="snap-author">por ${s.createdBy} · ${fmtTs(s.createdAt)}</div>`:""}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div><div class="snap-total">${COP2(tot)}</div><div class="snap-cdts">CDTs: ${COP(totalCdts(s))} · Ahorro: ${COP2(+s.ahorro||0)}</div></div>
+        ${isAdmin&&!isLatest?`<button class="btn-danger-sm" onclick="deleteSnap('${s.id}')">✕</button>`:""}
+      </div>
+    </div>`;
+  }).join("")||`<div style="text-align:center;padding:32px;color:var(--text3)">Sem registos</div>`;
+}
+
+function fillFromLast(){
+  if(!snapshots.length)return;
+  const snap=latestSnap();
+  snap.cdts.forEach(c=>{
+    const id=c.ref.replace("\xb7","");
+    const vEl=document.getElementById("cdt_val_"+id),sEl=document.getElementById("cdt_st_"+id);
+    if(vEl)vEl.value=c.status==="closed"?0:c.valor;
+    if(sEl)sEl.value=c.status;
+  });
+  document.getElementById("newAhorro").value=snap.ahorro||0;
+  toast("Preenchido com base no último registo","info");
+}
+
+function addNewCdtField(){
+  if(currentRole==="viewer"){toast("Sem permissão","err");return;}
+  const ref=prompt("Referência do novo CDT (ex: 9999):","");if(!ref)return;
+  const vencimento=prompt("Data de vencimento (YYYY-MM-DD):","2026-");if(!vencimento)return;
+  const rc="\xb7"+ref,id=ref;
+  const stOpts=["active","soon","expired","closed"].map(s=>`<option value="${s}">${{active:"Activo",soon:"Em breve",expired:"Vencido",closed:"Encerrado"}[s]}</option>`).join("");
+  document.getElementById("newSnapCdts").insertAdjacentHTML("beforeend",`<div class="cdt-input-card"><div class="cdt-input-header"><span class="cdt-input-ref">CDT ${rc}</span><span class="cdt-input-venc">${fmtDate(vencimento)}</span></div><div class="cdt-row"><input type="number" class="cdt-val-input" id="cdt_val_${id}" placeholder="0" data-venc="${vencimento}" data-ref="${rc}"><select class="cdt-status-sel" id="cdt_st_${id}">${stOpts}</select></div></div>`);
+  toast(`CDT ${rc} adicionado ao formulário`,"ok");
+}
+
+async function saveNewSnap(){
+  if(currentRole==="viewer"){toast("Sem permissão","err");return;}
+  const date=document.getElementById("newSnapDate").value,label=document.getElementById("newSnapLabel").value||fmtDate(date),notes=document.getElementById("newSnapNotes").value,ahorro=parseFloat(document.getElementById("newAhorro").value)||0;
+  if(!date){toast("Preenche a data","err");return;}
+  const allRefs=[...new Set(snapshots.flatMap(s=>s.cdts.map(c=>c.ref)))];
+  // também incluir campos extra adicionados
+  document.querySelectorAll("[data-ref]").forEach(el=>{const r=el.dataset.ref;if(!allRefs.includes(r))allRefs.push(r);});
+  const cdts=allRefs.map(ref=>{
+    const id=ref.replace("\xb7","");
+    const vEl=document.getElementById("cdt_val_"+id),sEl=document.getElementById("cdt_st_"+id);
+    const prev=latestSnap().cdts.find(c=>c.ref===ref)||{};
+    const venc=vEl?.dataset?.venc||prev.vencimento||"";
+    let st=sEl?sEl.value:"active";
+    const v=vEl?parseFloat(vEl.value)||0:0;
+    if(st!=="closed"&&venc)st=statusAutoDetect(venc);
+    return{ref,vencimento:venc,valor:v,status:st};
+  });
+  const btn=document.getElementById("btnSaveSnap");
+  btn.disabled=true;btn.textContent="A guardar...";
+  try{
+    await db.collection("snapshots").add({date,label,notes,cdts,ahorro,createdBy:currentUser.email,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    await logActivity("snap_created",`Registo ${fmtDate(date)} adicionado`);
+    document.getElementById("newSnapLabel").value="";document.getElementById("newSnapNotes").value="";
+    toast("Registo guardado e sincronizado","ok");
+  }catch(e){toast("Erro ao guardar: "+e.message,"err");}
+  btn.disabled=false;btn.textContent="💾 Guardar Registo";
+}
+
+async function deleteSnap(id){
+  if(currentRole!=="admin"){toast("Apenas administradores podem eliminar","err");return;}
+  if(snapshots.length<=1){toast("Não é possível eliminar o único registo","err");return;}
+  if(!confirm("Eliminar este registo permanentemente?"))return;
+  try{await db.collection("snapshots").doc(id).delete();await logActivity("snap_deleted","Registo eliminado: "+id);toast("Registo eliminado","ok");}
+  catch(e){toast("Erro: "+e.message,"err");}
+}
+
+// ── ADMIN ──────────────────────────────────────────────────
+async function loadAdminPanel(){
+  try{
+    const doc=await db.collection("config").doc("access").get();
+    const data=doc.exists?doc.data():{roles:{},meta:{}};
+    const roles=data.roles||{},meta=data.meta||{};
+    const roleLabel={admin:"Admin",editor:"Editor",viewer:"Viewer"};
+    document.getElementById("accessList").innerHTML=Object.entries(roles).map(([email,role])=>`
+      <div class="access-item">
+        <div><div class="access-email">${email}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">Adicionado por: ${meta[email]?.addedBy||"—"}</div></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="access-role-badge ${role}">${roleLabel[role]||role}</span>
+          ${email!==currentUser.email?`<button class="btn-danger-sm" onclick="removeUser('${email}')">Remover</button>`:"<span style='font-size:10px;color:var(--text3)'>tu</span>"}
+        </div>
+      </div>`).join("")||"<div style='color:var(--text3);font-size:13px;padding:8px'>Nenhum utilizador</div>";
+    loadActivityLog();
+  }catch(e){toast("Erro ao carregar acessos: "+e.message,"err");}
+}
+
+async function addUser(){
+  const email=document.getElementById("newUserEmail").value.trim().toLowerCase(),role=document.getElementById("newUserRole").value;
+  if(!email||!email.includes("@")){toast("Email inválido","err");return;}
+  try{
+    const doc=await db.collection("config").doc("access").get();
+    const data=doc.exists?doc.data():{roles:{},meta:{}};
+    if(data.roles[email]){toast("Este email já tem acesso","err");return;}
+    data.roles[email]=role;
+    data.meta=data.meta||{};
+    data.meta[email]={addedBy:currentUser.email,addedAt:firebase.firestore.FieldValue.serverTimestamp()};
+    await db.collection("config").doc("access").set(data);
+    await logActivity("user_added",`${email} adicionado como ${role}`);
+    document.getElementById("newUserEmail").value="";
+    toast(`${email} adicionado como ${role}`,"ok");loadAdminPanel();
+  }catch(e){toast("Erro: "+e.message,"err");}
+}
+
+async function removeUser(email){
+  if(!confirm(`Remover acesso de ${email}?`))return;
+  try{
+    const doc=await db.collection("config").doc("access").get();
+    const data=doc.data();
+    delete data.roles[email];if(data.meta)delete data.meta[email];
+    await db.collection("config").doc("access").set(data);
+    await logActivity("user_removed",`${email} removido`);
+    toast(`${email} removido`,"ok");loadAdminPanel();
+  }catch(e){toast("Erro: "+e.message,"err");}
+}
+
+async function logActivity(type,desc){
+  try{await db.collection("activity").add({type,desc,user:currentUser.email,ts:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){}
+}
+
+async function loadActivityLog(){
+  try{
+    const snap=await db.collection("activity").orderBy("ts","desc").limit(25).get();
+    const rows=snap.docs.map(d=>{const x=d.data();return`<tr><td class="mono" style="white-space:nowrap">${fmtTs(x.ts)}</td><td>${x.user||"—"}</td><td>${x.desc||"—"}</td></tr>`;}).join("");
+    document.getElementById("activityLog").innerHTML=rows?`<table><thead><tr><th>Data/Hora</th><th>Utilizador</th><th>Acção</th></tr></thead><tbody>${rows}</tbody></table>`:`<div style="padding:20px;text-align:center;color:var(--text3)">Sem actividade registada</div>`;
+  }catch(e){}
+}
+
+// ── TABS ───────────────────────────────────────────────────
+function switchTab(tab){
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(c=>c.classList.remove("active"));
+  document.getElementById("tab-"+tab).classList.add("active");
+  document.getElementById("content-"+tab).classList.add("active");
+  if(tab==="evolucao")renderEvo();
+  if(tab==="lancamentos")renderSnapForm();
+  if(tab==="admin")loadAdminPanel();
+}
+
+// ── TOAST ──────────────────────────────────────────────────
+function toast(msg,type="info"){
+  const wrap=document.getElementById("toastWrap"),t=document.createElement("div");
+  t.className="toast "+type;t.textContent=(type==="ok"?"✓ ":type==="err"?"✕ ":"ℹ ")+msg;
+  wrap.appendChild(t);setTimeout(()=>{t.style.opacity="0";},3200);setTimeout(()=>t.remove(),3700);
+}
+</script>
+</body>
+</html>
