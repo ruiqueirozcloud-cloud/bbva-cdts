@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Teste Firebase v3 - Popup</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+</head>
+<body style="background:#111;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:20px;text-align:center;padding:20px">
+<div id="status" style="font-size:18px">A verificar...</div>
+<button id="btnLogin" style="display:none;padding:12px 24px;font-size:16px;cursor:pointer;border-radius:8px" onclick="login()">Entrar com Google</button>
+<button id="btnOut" style="display:none;padding:10px 20px;cursor:pointer;border-radius:8px" onclick="firebase.auth().signOut()">Sair</button>
+<div id="info" style="font-size:13px;color:#aaa;max-width:500px;word-break:break-all"></div>
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyAGW5231Tr062elSaelRWYlArPWqnsY-Xk",
+  authDomain:"cgf-saas.firebaseapp.com",
+  projectId:"cgf-saas"
+});
+const auth = firebase.auth();
+
+auth.onAuthStateChanged(user=>{
+  document.getElementById("loading") && (document.getElementById("loading").style.display="none");
+  if(user){
+    document.getElementById("status").textContent="✅ Autenticado: "+user.email;
+    document.getElementById("btnLogin").style.display="none";
+    document.getElementById("btnOut").style.display="block";
+    document.getElementById("info").textContent="Login bem sucedido!";
+  } else {
+    document.getElementById("status").textContent="Não autenticado";
+    document.getElementById("btnLogin").style.display="block";
+    document.getElementById("btnOut").style.display="none";
+  }
+});
+
+function login(){
+  document.getElementById("info").textContent="A abrir popup Google...";
+  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .then(r=>{
+      document.getElementById("info").textContent="Popup OK: "+r.user.email;
+    })
+    .catch(e=>{
+      document.getElementById("info").textContent="Erro popup: "+e.code+" | "+e.message;
+    });
+}
+</script>
+</body>
+</html>
