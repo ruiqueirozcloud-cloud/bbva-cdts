@@ -351,7 +351,7 @@ function latestSnap(){return snapshots[snapshots.length-1];}
 // ── AUTH ───────────────────────────────────────────────────
 function signInGoogle(){
   const p=new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(p).catch(e=>toast("Erro ao entrar: "+e.message,"err"));
+  auth.signInWithRedirect(p).catch(e=>toast("Erro ao entrar: "+e.message,"err"));
 }
 function signOut(){auth.signOut();}
 
