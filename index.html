@@ -295,8 +295,7 @@ tfoot td.mono{font-family:"JetBrains Mono",monospace}tfoot td.r{text-align:right
       <div class="cards" id="priv-cards"></div>
       <div class="sechdr">
         <div class="sectitle">CDTs em Carteira <span class="sbadge" id="priv-sdate">—</span></div>
-        <button class="btn-s" style="font-size:11px;padding:6px 12px" onclick="goTab('priv','reg')">✏️ Novo Registo</button>
-        <button class="btn-p" style="font-size:11px;padding:6px 14px;background:var(--priv)" onclick="openImageModal()">📷 Actualizar via Foto IA</button>
+        <label class="btn-p" style="font-size:11px;padding:6px 14px;background:var(--priv);cursor:pointer">📂 Importar JSON<input type="file" accept=".json" style="display:none" onchange="importSnapJSON(event)"></label>
       </div>
       <div class="twrap" id="priv-cdttbl"></div>
       <div class="distbox" id="priv-distbox"></div>
