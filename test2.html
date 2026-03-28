@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Teste Firebase v2</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+</head>
+<body style="background:#111;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:20px;text-align:center;padding:20px">
+<div id="status" style="font-size:18px">A inicializar...</div>
+<button id="btnLogin" style="display:none;padding:12px 24px;font-size:16px;cursor:pointer;border-radius:8px" onclick="login()">Entrar com Google</button>
+<button id="btnOut" style="display:none;padding:10px 20px;cursor:pointer;border-radius:8px" onclick="firebase.auth().signOut().then(()=>location.reload())">Sair</button>
+<div id="info" style="font-size:13px;color:#aaa;max-width:500px;word-break:break-all"></div>
+
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyAGW5231Tr062elSaelRWYlArPWqnsY-Xk",
+  authDomain:"cgf-saas.firebaseapp.com",
+  projectId:"cgf-saas"
+});
+const auth = firebase.auth();
+
+function showLogin(){
+  document.getElementById("status").textContent="Não autenticado";
+  document.getElementById("btnLogin").style.display="block";
+  document.getElementById("btnOut").style.display="none";
+}
+function showUser(user){
+  document.getElementById("status").textContent="✅ Autenticado: "+user.email;
+  document.getElementById("btnLogin").style.display="none";
+  document.getElementById("btnOut").style.display="block";
+}
+
+// Passo 1: processar redirect result PRIMEIRO
+document.getElementById("status").textContent="A processar redirect...";
+auth.getRedirectResult().then(result=>{
+  document.getElementById("info").textContent="getRedirectResult: "+(result.user?result.user.email:"sem utilizador");
+  if(result.user){
+    showUser(result.user);
+  } else {
+    // Passo 2: verificar sessão existente
+    const user = auth.currentUser;
+    if(user){ showUser(user); }
+    else { showLogin(); }
+  }
+}).catch(e=>{
+  document.getElementById("info").textContent="Erro redirect: "+e.code+" — "+e.message;
+  showLogin();
+});
+
+// Monitorar mudanças de auth
+auth.onAuthStateChanged(user=>{
+  document.getElementById("info").textContent += " | onAuthStateChanged: "+(user?user.email:"null");
+  if(user){ showUser(user); }
+});
+
+function login(){
+  document.getElementById("status").textContent="A redirecionar...";
+  auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider())
+    .catch(e=>{
+      document.getElementById("info").textContent="Erro login: "+e.message;
+      showLogin();
+    });
+}
+</script>
+</body>
+</html>
